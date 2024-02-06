@@ -1,109 +1,69 @@
 import { db } from "../conexion.js";
 
+export const crearCategoria = async (req, res) => {
+    const { nombre, descripcion } = req.body;
 
-export const crearCategoria = async(req, res) =>{
-    const {nombre, descripcion} = req.body;
+    try {
+        // Validamos los campos
+        if (!nombre || !descripcion) {
+            return res.status(400).json({ error: "El nombre y la descripción son requeridos" });
+        }
 
-    try{ 
-        const {nombre, descripcion, fecha_adquisicion, valor, estado, proveedor, categoria} = req.body;
-        
-        //Validamos los campos 
-    
-        if(!nombre){
-            return res.send({error: "El nombre es requerido"})
+        // Validamos si ya existe esta categoría
+        const [categorias] = await db.execute("SELECT * FROM categoria WHERE nombre = ?", [nombre]);
+        if (categorias.length > 0) {
+            return res.status(409).json("Esta categoría ya se encuentra registrada");
         }
-        if(!descripcion){
-            return res.send({error: "La descripcion es requerida"})
-        }
-    
-        //Validamos si ya existe este bien
-        const q = "SELECT * FROM categoria WHERE nombre = ?";
-        db.query(q, [nombre], (err, data) =>{
-          if (err) return res.status(500).json(err);
-          if (data.length) return res.status(409).json("Esta categoria ya se encuentra registrado");
-    
-          const categoriaQuery = "INSERT INTO categoria (nombre, descripcion) VALUES (?,? )"
-    
-          //INSERTAMOS LOS DATOS EN LA TABLA BIEN
-          const categoria = [nombre, descripcion];
-    
-          db.query(categoriaQuery, categoria, (err, data) =>{
-            if (err) return res.status(500).json(err);
-            return res.status(200).json("Categoria registrada correctamente");
-          })
-        })}catch(error){
-            // Manejar errores aquí
+
+        // Insertamos los datos en la tabla categoria
+        const categoriaQuery = "INSERT INTO categoria (nombre, descripcion) VALUES (?, ?)";
+        const result = await db.execute(categoriaQuery, [nombre, descripcion]);
+
+        return res.status(200).json("Categoría registrada correctamente");
+    } catch (error) {
         console.error(error);
         res.status(500).json(error.message);
-        }
-}
+    }
+};
 
-
-export const obtenerCategorias = async (req, res) =>{
+export const obtenerCategorias = async (req, res) => {
     try {
-        const q = "SELECT * FROM categoria ORDER BY nombre";
-
-        db.query(q, (err, data) =>{
-            if (err) return res.status(500).json(err);
-  
-            // Devolver la lista de libros ordenados por título
-            return res.status(200).json(data);
-        })
+        const [categorias] = await db.execute("SELECT * FROM categoria ORDER BY nombre");
+        return res.status(200).json(categorias);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: "Error al obtener la lista de categorias" });
+        res.status(500).json({ message: "Error al obtener la lista de categorías" });
     }
-}
+};
 
-// ELIMINAR UN CATEGORIA POR SU CÓDIGO
 export const eliminarCategoria = async (req, res) => {
     try {
-      const { codigo } = req.params;
-  
-      // Consulta para eliminar un libro por su código
-      const deleteQuery = "DELETE FROM categoria WHERE id_categoria = ?";
-  
-      db.query(deleteQuery, [codigo], (err, result) => {
-        if (err) return res.status(500).json(err);
-  
+        const { codigo } = req.params;
+        const [result] = await db.execute("DELETE FROM categoria WHERE id_categoria = ?", [codigo]);
         if (result.affectedRows === 0) {
-          return res.status(404).json("Categoria no encontrada, no se pudo eliminar");
+            return res.status(404).json("Categoría no encontrada, no se pudo eliminar");
         }
-  
-        // Libro eliminado exitosamente
-        return res.status(200).json("Categoria eliminada correctamente");
-      });
+        return res.status(200).json("Categoría eliminada correctamente");
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: "Error al eliminar la categoria" });
+        console.error(error);
+        res.status(500).json({ message: "Error al eliminar la categoría" });
     }
-  };
+};
 
-// OBTENER UNA CATEGORIA POR SU CÓDIGO
 export const obtenerCategoriaPorId = async (req, res) => {
     try {
-      const { codigo } = req.params;
-  
-      // Consulta para obtener una categoria por su código
-      const query = "SELECT * FROM categoria WHERE id_categoria = ?";
-      
-      db.query(query, [codigo], (err, data) => {
-        if (err) return res.status(500).json(err);
-  
-        if (data.length === 0) {
-          return res.status(404).json("Categoria no encontrada");
+        const { codigo } = req.params;
+        const [categoria] = await db.execute("SELECT * FROM categoria WHERE id_categoria = ?", [codigo]);
+        if (categoria.length === 0) {
+            return res.status(404).json("Categoría no encontrada");
         }
-  
-        // Devolver la categoria encontrado en la respuesta JSON
-        return res.status(200).json(data[0]);
-      });
+        return res.status(200).json(categoria[0]);
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: "Error al obtener la categoria" });
+        console.error(error);
+        res.status(500).json({ message: "Error al obtener la categoría" });
     }
-  };
- 
-  // Actualizar una categoría por su código
+};
+
 export const actualizarCategoria = async (req, res) => {
     try {
         const { codigo } = req.params;
@@ -114,21 +74,12 @@ export const actualizarCategoria = async (req, res) => {
             return res.status(400).json({ error: "Nombre y descripción son requeridos" });
         }
 
-        // Consulta para actualizar la categoría
-        const updateQuery = "UPDATE categoria SET nombre = ?, descripcion = ? WHERE id_categoria = ?";
-
-        db.query(updateQuery, [nombre, descripcion, codigo], (err, result) => {
-            if (err) {
-                return res.status(500).json(err);
-            }
-
-            if (result.affectedRows === 0) {
-                return res.status(404).json("Categoría no encontrada, no se pudo actualizar");
-            }
-
-            // Categoría actualizada exitosamente
-            return res.status(200).json("Categoría actualizada correctamente");
-        });
+        // Actualizar la categoría
+        const [result] = await db.execute("UPDATE categoria SET nombre = ?, descripcion = ? WHERE id_categoria = ?", [nombre, descripcion, codigo]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json("Categoría no encontrada, no se pudo actualizar");
+        }
+        return res.status(200).json("Categoría actualizada correctamente");
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error al actualizar la categoría" });
